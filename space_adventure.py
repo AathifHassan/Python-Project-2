@@ -82,9 +82,9 @@ class Player(pygame.sprite.Sprite):
         self.speed_x = 0
         keystate = pygame.key.get_pressed()
         if keystate[pygame.K_LEFT]:
-            self.speed_x = 8
-        if keystate[pygame.K_RIGHT]:
             self.speed_x = -8
+        if keystate[pygame.K_RIGHT]:
+            self.speed_x = 8
 
         self.rect.x += self.speed_x
         if self.rect.right > SCREEN_WIDTH + 20:
@@ -111,6 +111,14 @@ class Player(pygame.sprite.Sprite):
     def powerup(self):
         self.power_level += 1
         self.power_timer = pygame.time.get_ticks()
+
+    def lose_life(self):
+        self.lives -= 1
+        self.shield = 100
+        self.hide()
+        if self.lives == 0:
+            return True
+        return False
 
 # Enemy class
 class Enemy(pygame.sprite.Sprite):
@@ -145,7 +153,7 @@ class Bullet(pygame.sprite.Sprite):
         self.rect = self.image.get_rect()
         self.rect.centerx = x
         self.rect.bottom = y
-        self.speedy = 1
+        self.speedy = -10
 
     def update(self):
         self.rect.y += self.speedy
@@ -222,6 +230,12 @@ def draw_lives(surface, x, y, lives, img):
         img_rect.y = y
         surface.blit(img, img_rect)
 
+# Function to display game over screen
+def game_over_screen():
+    draw_text(screen, "GAME OVER", 64, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 3)
+    draw_text(screen, "Press Q to Quit or R to Restart", 32, SCREEN_WIDTH // 2, SCREEN_HEIGHT // 2)
+    pygame.display.flip()
+
 # Game loop
 def main_game():
     global all_sprites, bullets, enemies, powerups
@@ -250,7 +264,6 @@ def main_game():
     
     # Main game loop
     while running:
-        # Keep loop running at the right speed
         clock.tick(FPS)
         
         # Process input (events)
@@ -262,6 +275,10 @@ def main_game():
             elif event.type == pygame.KEYDOWN:
                 if event.key == pygame.K_SPACE:
                     player.shoot()
+                if event.key == pygame.K_q and game_over:
+                    running = False
+                if event.key == pygame.K_r and game_over:
+                    main_game()
         
         # Update
         all_sprites.update()
@@ -270,15 +287,12 @@ def main_game():
         hits = pygame.sprite.groupcollide(enemies, bullets, False, True)
         for hit in hits:
             score += 10
-            # Create explosion
             explosion = Explosion(hit.rect.center, 30)
             all_sprites.add(explosion)
-            # Spawn new enemy
             new_enemy = Enemy()
             all_sprites.add(new_enemy)
             enemies.add(new_enemy)
-            # Random chance for power-up
-            if random.random() > 0.5:  # 50% chance
+            if random.random() > 0.5:  # 50% chance for power-up
                 powerup = Powerup()
                 all_sprites.add(powerup)
                 powerups.add(powerup)
@@ -293,10 +307,7 @@ def main_game():
             all_sprites.add(new_enemy)
             enemies.add(new_enemy)
             if player.shield <= 0:
-                # player.lives -= 1
-                player.shield = 100
-                player.hide()
-                if player.lives == 0:
+                if player.lose_life():
                     game_over = True
         
         # Check player-powerup collisions
@@ -309,9 +320,6 @@ def main_game():
             if hit.type == 'power':
                 player.powerup()
         
-        if game_over:
-            pass
-            
         # Draw / render
         screen.fill(BLACK)
         all_sprites.draw(screen)
@@ -321,7 +329,10 @@ def main_game():
         draw_shield_bar(screen, 5, 5, player.shield)
         draw_lives(screen, SCREEN_WIDTH - 100, 5, player.lives, player_mini_img)
         
-        # Flip the display
+        # If game over, show game over screen
+        if game_over:
+            game_over_screen()
+        
         pygame.display.flip()
     
     pygame.quit()
